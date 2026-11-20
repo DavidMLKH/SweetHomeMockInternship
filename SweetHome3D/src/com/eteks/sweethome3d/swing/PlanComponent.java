@@ -2008,7 +2008,41 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
    * that makes it fill <code>pageFormat</code> imageable size if this attribute is <code>null</code>.
    */
   public int print(Graphics g, PageFormat pageFormat, int pageIndex) {
-    List<Selectable> printedItems = getPaintedItems(); 
+    List<Level> viewableLevels = new ArrayList<Level>();
+    for (Level level : this.home.getLevels()) {
+      if (level.isViewable()) {
+        viewableLevels.add(level);
+      }
+    }
+    if (viewableLevels.isEmpty()) {
+      return printSelectedLevel(g, pageFormat, pageIndex);
+    }
+    // Print every viewable level in order, then restore the selected level
+    Level selectedLevel = this.home.getSelectedLevel();
+    Graphics dummyGraphics = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB).getGraphics();
+    try {
+      int remainingPages = pageIndex;
+      for (Level level : viewableLevels) {
+        this.home.setSelectedLevel(level);
+        int levelPageCount = 0;
+        // Count the pages of this level on a dummy image to know where the next level starts
+        while (printSelectedLevel(dummyGraphics, pageFormat, levelPageCount) == PAGE_EXISTS) {
+          levelPageCount++;
+        }
+        if (remainingPages < levelPageCount) {
+          return printSelectedLevel(g, pageFormat, remainingPages);
+        }
+        remainingPages -= levelPageCount;
+      }
+      return NO_SUCH_PAGE;
+    } finally {
+      dummyGraphics.dispose();
+      this.home.setSelectedLevel(selectedLevel);
+    }
+  }
+
+  private int printSelectedLevel(Graphics g, PageFormat pageFormat, int pageIndex) {
+    List<Selectable> printedItems = getPaintedItems();
     Rectangle2D printedItemBounds = getItemsBounds(g, printedItems);
     if (printedItemBounds != null) {
       double imageableX = pageFormat.getImageableX();
