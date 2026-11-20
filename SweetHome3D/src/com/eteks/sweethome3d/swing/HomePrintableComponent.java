@@ -279,8 +279,18 @@ public class HomePrintableComponent extends JComponent implements Printable {
           homeName = "";
         }
         String levelName = "";
-        if (this.home.getSelectedLevel() != null) {
-          levelName = this.home.getSelectedLevel().getName();
+        Level headerLevel = this.home.getSelectedLevel();
+        int planPage = page - this.furniturePageCount;
+        if (planPage >= 0 && homePrint.isPlanPrinted()) {
+          // Use the level printed on this plan page
+          if (planView instanceof PlanComponent) {
+            headerLevel = ((PlanComponent)planView).getPrintedLevel(pageFormat, planPage);
+          } else if (planView instanceof MultipleLevelsPlanPanel) {
+            headerLevel = ((MultipleLevelsPlanPanel)planView).getPrintedLevel(pageFormat, planPage);
+          }
+        }
+        if (headerLevel != null) {
+          levelName = headerLevel.getName();
         }
         String homePresentationName = this.controller.getContentManager().getPresentationName(
              homeName, ContentManager.ContentType.SWEET_HOME_3D);

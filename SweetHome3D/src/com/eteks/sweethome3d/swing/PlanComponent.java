@@ -2008,36 +2008,74 @@ public class PlanComponent extends JComponent implements PlanView, Scrollable, P
    * that makes it fill <code>pageFormat</code> imageable size if this attribute is <code>null</code>.
    */
   public int print(Graphics g, PageFormat pageFormat, int pageIndex) {
+    List<Level> viewableLevels = getViewableLevels();
+    if (viewableLevels.isEmpty()) {
+      return printSelectedLevel(g, pageFormat, pageIndex);
+    }
+    // Print every viewable level in order, then restore the selected level
+    Level selectedLevel = this.home.getSelectedLevel();
+    try {
+      int [] pageInLevel = {pageIndex};
+      Level printedLevel = findPrintedLevel(viewableLevels, pageFormat, pageInLevel);
+      if (printedLevel == null) {
+        return NO_SUCH_PAGE;
+      }
+      this.home.setSelectedLevel(printedLevel);
+      return printSelectedLevel(g, pageFormat, pageInLevel [0]);
+    } finally {
+      this.home.setSelectedLevel(selectedLevel);
+    }
+  }
+
+  /**
+   * Returns the level printed at the given <code>pageIndex</code> by {@link #print(Graphics, PageFormat, int) print},
+   * or the selected level if the home has no viewable level.
+   */
+  public Level getPrintedLevel(PageFormat pageFormat, int pageIndex) {
+    List<Level> viewableLevels = getViewableLevels();
+    Level selectedLevel = this.home.getSelectedLevel();
+    if (viewableLevels.isEmpty()) {
+      return selectedLevel;
+    }
+    try {
+      return findPrintedLevel(viewableLevels, pageFormat, new int [] {pageIndex});
+    } finally {
+      this.home.setSelectedLevel(selectedLevel);
+    }
+  }
+
+  private List<Level> getViewableLevels() {
     List<Level> viewableLevels = new ArrayList<Level>();
     for (Level level : this.home.getLevels()) {
       if (level.isViewable()) {
         viewableLevels.add(level);
       }
     }
-    if (viewableLevels.isEmpty()) {
-      return printSelectedLevel(g, pageFormat, pageIndex);
-    }
-    // Print every viewable level in order, then restore the selected level
-    Level selectedLevel = this.home.getSelectedLevel();
+    return viewableLevels;
+  }
+
+  /**
+   * Returns the level printed at page <code>pageInLevel [0]</code> and stores in this array the page index in that level,
+   * or returns <code>null</code> if there's no such page. Changes the selected level of home.
+   */
+  private Level findPrintedLevel(List<Level> viewableLevels, PageFormat pageFormat, int [] pageInLevel) {
     Graphics dummyGraphics = new BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB).getGraphics();
     try {
-      int remainingPages = pageIndex;
       for (Level level : viewableLevels) {
         this.home.setSelectedLevel(level);
-        int levelPageCount = 0;
         // Count the pages of this level on a dummy image to know where the next level starts
+        int levelPageCount = 0;
         while (printSelectedLevel(dummyGraphics, pageFormat, levelPageCount) == PAGE_EXISTS) {
           levelPageCount++;
         }
-        if (remainingPages < levelPageCount) {
-          return printSelectedLevel(g, pageFormat, remainingPages);
+        if (pageInLevel [0] < levelPageCount) {
+          return level;
         }
-        remainingPages -= levelPageCount;
+        pageInLevel [0] -= levelPageCount;
       }
-      return NO_SUCH_PAGE;
+      return null;
     } finally {
       dummyGraphics.dispose();
-      this.home.setSelectedLevel(selectedLevel);
     }
   }
 
